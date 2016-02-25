@@ -1,0 +1,21 @@
+---
+title: 'EES 4760/5760: Agent-Based Modeling'
+author: "Jonathan Gilligan"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## EES 4760/5760 Agent-Based Modeling
+
+### Available Applications
+<ul>
+```{r index, echo=F, include=T, results='asis'}
+library(purrr)
+library(htmltools)
+    list.dirs(recursive = FALSE, full.names = FALSE) %>%
+      discard(~.x == '') %>%
+      map(~tags$li(a(.x, href=.x))) %>%
+      tagList() %>% as.character() %>% cat()
+```
+</ul>
