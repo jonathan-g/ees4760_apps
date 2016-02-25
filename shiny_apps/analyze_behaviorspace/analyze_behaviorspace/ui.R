@@ -8,7 +8,7 @@
 library(shiny)
 
 shinyUI(fluidPage(
-  titlePanel("Analyze BehaviorSpace"),
+  titlePanel("Analyze BehaviorSpace Experiments"),
   sidebarLayout(
     sidebarPanel(
       fileInput('file1', 'Choose CSV File',
