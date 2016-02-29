@@ -241,21 +241,27 @@ shinyServer(function(input, output, session) {
     x_var <- input$x_var
     y_var <- input$y_var
     g_var <- input$group_var
+    err_bars <- input$error_bars
     gv <- expt_group_vars()
     mapping <- experiment$mapping
+    plt_data <- plot_data()
     if (x_var == "" || y_var == "") return(NULL)
     if (is.null(mapping)) return(NULL)
     # message("Mapping")
+    p_map_list = list(x = x_var, y = y_var)
+    plot_legend <- NULL
     if (g_var %in% gv$col) {
-      p_map <- aes_string(x = x_var,
-                            y = y_var,
-                            colour = paste0("ordered(", g_var,")"))
+      p_map_list <- c(p_map_list,  colour = paste0("ordered(", g_var,")"))
       plot_legend <- tx_col(g_var, mapping)
-    } else {
-      p_map <- aes_string(x = x_var,
-                          y = y_var)
-      plot_legend <- NULL
     }
+    sd_name <- paste0(y_var, "_sd")
+    if (err_bars && sd_name %in% names(plt_data)) {
+      p_map_list <- c(p_map_list,
+                      ymin = paste0(y_var, " - ", sd_name),
+                      ymax = paste0(y_var, " + ", sd_name)
+      )
+    }
+    p_map <- do.call(aes_string, p_map_list)
     plot_labs <- labs(x = tx_col(x_var, mapping), y = tx_col(y_var, mapping))
     rval <- list(mapping = p_map, labels = plot_labs, legend = plot_legend)
     message("plot_mapping: rval = ", rval)
@@ -278,17 +284,21 @@ shinyServer(function(input, output, session) {
   output$plot <- renderPlot({
     points <- input$points
     lines <- input$lines
+    y_var <- input$y_var
+    err_bars <- input$error_bars
     p_map <- plot_mapping()
     df <- plot_data()
     if (is.null(p_map) || is.null(df)) return()
-    message("output plot: mapping = ", p_map)
+    sd_name <- paste0(y_var, "_sd")
+#    message("output plot: mapping = ", p_map)
     pm_mapping <- p_map$mapping
     pm_labs <- p_map$labels
     pm_legend <- p_map$legend
     # message("Plotting")
     p <- ggplot(df, pm_mapping)
-    if (points) p <- p + geom_point()
     if (lines) p <- p + geom_line()
+    if (err_bars && sd_name %in% names(df)) p <- p + geom_errorbar()
+    if (points) p <- p + geom_point()
     if (! is.null(pm_legend)) {
       message("adding legend ", pm_legend)
       p <- p + scale_colour_discrete(guide = guide_legend(pm_legend, reverse = TRUE))
