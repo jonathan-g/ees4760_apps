@@ -303,29 +303,6 @@ shinyServer(function(input, output, session) {
     rval
   })
 
-  maketable <- reactive({
-    message("making table")
-    if (is.null(experiment$data)) return(NULL)
-    dots <- experiment$mapping %>% {set_names(.$col, .$name)}
-    expt_data <- plot_data()
-    if((! input$summary_tab) || is.null(expt_data)) {
-      expt_data <- experiment$data
-      if (input$last_tick) {
-        max_tick_ <- max(expt_data$tick)
-        expt_data <- expt_data %>% filter(tick == max_tick_)
-      }
-    }
-    dots <- dots %>% keep(~.x %in% names(expt_data))
-    expt_data <- expt_data %>% rename_(.dots = dots)
-    message("done making table")
-    return(expt_data)
-  })
-  
-  output$contents <- DT::renderDataTable( 
-    maketable(), 
-    server = TRUE, options = list(lengthChange = FALSE)  
-    )
-  
 
   makeplot <- reactive({
     message("makeplot")
@@ -365,35 +342,44 @@ shinyServer(function(input, output, session) {
     p
   })
 
+
+  maketable <- reactive({
+    message("making table")
+    if (is.null(experiment$data)) return(NULL)
+    dots <- experiment$mapping %>% {set_names(.$col, .$name)}
+    expt_data <- plot_data()
+    if((! input$summary_tab) || is.null(expt_data)) {
+      expt_data <- experiment$data
+      if (input$last_tick) {
+        max_tick_ <- max(expt_data$tick)
+        expt_data <- expt_data %>% filter(tick == max_tick_)
+      }
+    }
+    dots <- dots %>% keep(~.x %in% names(expt_data))
+    expt_data <- expt_data %>% rename_(.dots = dots)
+    message("done making table")
+    return(expt_data)
+  })
+
   output$plot <- renderPlot({
     makeplot()
   })
 
+  output$table <- DT::renderDataTable(
+    maketable(),
+    server = TRUE, options = list(lengthChange = FALSE, bFilter = FALSE)
+    )
 
   get_filename <- reactive({
     if (is.null(input$file1)) return(NULL)
-    fname <- input$file1$name %>%
+    fname <- input$file1$name
+    message("Fixing up filename ", fname)
+    fname <- fname %>%
       str_replace(regex("\\.csv$", ignore.case = TRUE), '') %>%
       str_replace_all('[ .]+', '_')
+    message("Returning filename ", fname)
     fname
   })
-
-  output$save_table <- downloadHandler(
-    filename = function() {
-      if (is.null(plot_data())) return()
-      if (input$summary_tab) {
-        suffix <- 'summary'
-      } else {
-        suffix <- 'data'
-      }
-      fname <- get_filename() %>% paste0(suffix, '.csv')
-      fname
-    },
-    content = function(file1) {
-      message("Writing to file ", file1)
-      write.csv(maketable(), file1)
-    }
-  )
 
   output$save_plot <- downloadHandler(
     filename <- function() {
@@ -418,6 +404,23 @@ shinyServer(function(input, output, session) {
       png(file1, width = 800, height = 600)
       makeplot()
       dev.off()
+    }
+  )
+
+  output$save_table <- downloadHandler(
+    filename = function() {
+      if (is.null(experiment$data)) return()
+      if (input$summary_tab) {
+        suffix <- 'summary'
+      } else {
+        suffix <- 'data'
+      }
+      fname <- get_filename() %>% paste0(suffix, '.csv')
+      fname
+    },
+    content = function(file1) {
+      message("Writing to file ", file1)
+      write.csv(maketable(), file1)
     }
   )
 
