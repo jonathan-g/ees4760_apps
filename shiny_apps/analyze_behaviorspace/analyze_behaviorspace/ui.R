@@ -26,8 +26,8 @@ shinyUI(fluidPage(
       checkboxInput('summary_tab','Summary table?', FALSE),
       tags$hr(),
       h3("Rename variables"),
-      selectInput('ren_from', "from", choices = c("")),
-      textInput('ren_to', "to"),
+      selectInput('ren_from', label = "from", choices = c("")),
+      textInput('ren_to', label = "to"),
       actionButton("rename", "Rename")
     ),
     mainPanel(

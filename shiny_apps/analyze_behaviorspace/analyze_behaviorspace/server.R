@@ -140,7 +140,8 @@ shinyServer(function(input, output, session) {
     updateSelectInput(session, "group_var", choices = gvars, selected = gv)
     rvars <- expt_vars()%>% {set_names(.$col, .$name)} %>% as.list()
     if (! rv %in% rvars) rv <- ''
-    updateSelectInput(session, "ren_from", rvars, selected = rv)
+    updateSelectInput(session, "ren_from", choices = rvars, selected = rv)
+    message("Updated rename variables: (", paste(names(rvars), rvars, sep = " = ", collapse = ", "), ")")
   })
 
   observeEvent(expt_yvars(), {
@@ -172,7 +173,7 @@ shinyServer(function(input, output, session) {
 
     rvars <- expt_vars()%>% {set_names(.$col, .$name)} %>% as.list()
     if (! ren_from  %in% rvars) ren_from <- ''
-    updateSelectInput(session, "ren_from", rvars, selected = ren_from)
+    updateSelectInput(session, "ren_from", choices = rvars, selected = ren_from)
     experiment$mapping <- mapping
   })
 
@@ -246,42 +247,54 @@ shinyServer(function(input, output, session) {
     if (is.null(mapping)) return(NULL)
     # message("Mapping")
     if (g_var %in% gv$col) {
-      mapping <- aes_string(x = x_var,
+      p_map <- aes_string(x = x_var,
                             y = y_var,
                             colour = paste0("ordered(", g_var,")"))
-      legend <- tx_col(g_var, mapping)
+      plot_legend <- tx_col(g_var, mapping)
     } else {
-      mapping <- aes_string(x = x_var,
-                            y = y_var)
-      legend <- NULL
+      p_map <- aes_string(x = x_var,
+                          y = y_var)
+      plot_legend <- NULL
     }
-    labs <- labs(x = tx_col(x_var, mapping), y = tx_col(y_var, mapping))
-    list = list(mapping = mapping, labs = labs, legend = legend)
+    plot_labs <- labs(x = tx_col(x_var, mapping), y = tx_col(y_var, mapping))
+    rval <- list(mapping = p_map, labels = plot_labs, legend = plot_legend)
+    message("plot_mapping: rval = ", rval)
+    rval
   })
 
   output$contents <- renderTable({
     if(input$summary_tab) {
       return(plot_data())
     } else {
-      return(experiment$data)
+      expt_data <- experiment$data
+      if (input$last_tick) {
+        max_tick_ <- max(expt_data$tick)
+        expt_data <- expt_data %>% filter(tick == max_tick_)
+      }
+      return(expt_data)
     }
   })
 
   output$plot <- renderPlot({
     points <- input$points
     lines <- input$lines
-    mapping <- plot_mapping()
+    p_map <- plot_mapping()
     df <- plot_data()
-    if (is.null(mapping) || is.null(df)) return()
+    if (is.null(p_map) || is.null(df)) return()
+    message("output plot: mapping = ", p_map)
+    pm_mapping <- p_map$mapping
+    pm_labs <- p_map$labels
+    pm_legend <- p_map$legend
     # message("Plotting")
-    p <- ggplot(df, mapping$mapping)
+    p <- ggplot(df, pm_mapping)
     if (points) p <- p + geom_point()
     if (lines) p <- p + geom_line()
-    if (! is.null(mapping$legend)) {
-      p <- p + scale_colour_discrete(guide = guide_legend(mapping$legend, reverse = TRUE))
+    if (! is.null(pm_legend)) {
+      message("adding legend ", pm_legend)
+      p <- p + scale_colour_discrete(guide = guide_legend(pm_legend, reverse = TRUE))
     }
-
-    p <- p + mapping$labs
+    message("Labs = ", pm_labs)
+    p <- p + pm_labs
     p + theme_bw(base_size = 20)
   })
 })
