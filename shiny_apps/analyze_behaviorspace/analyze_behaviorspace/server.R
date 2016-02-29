@@ -13,7 +13,7 @@ library(purrr)
 library(stringr)
 library(readr)
 
-options(warn = 2)
+#instaoptions(warn = 2)
 
 count_unique <- function(col_names, df) {
   lapply(as.character(col_names), function(x) {
@@ -303,8 +303,8 @@ shinyServer(function(input, output, session) {
     rval
   })
 
-  output$contents <- DT::renderDataTable({
-    message("rendering table")
+  maketable <- reactive({
+    message("making table")
     if (is.null(experiment$data)) return(NULL)
     dots <- experiment$mapping %>% {set_names(.$col, .$name)}
     expt_data <- plot_data()
@@ -317,9 +317,15 @@ shinyServer(function(input, output, session) {
     }
     dots <- dots %>% keep(~.x %in% names(expt_data))
     expt_data <- expt_data %>% rename_(.dots = dots)
-    message("done rendering table")
+    message("done making table")
     return(expt_data)
-  }, server = TRUE, options = list(lengthChange = FALSE)  )
+  })
+  
+  output$contents <- DT::renderDataTable( 
+    maketable(), 
+    server = TRUE, options = list(lengthChange = FALSE)  
+    )
+  
 
   makeplot <- reactive({
     message("makeplot")
@@ -384,21 +390,8 @@ shinyServer(function(input, output, session) {
       fname
     },
     content = function(file1) {
-      message("entering content")
-      if (is.null(experiment$data)) return(NULL)
-      dots <- experiment$mapping %>% {set_names(.$col, .$name)}
-      expt_data <- plot_data()
-      if((! input$summary_tab) || is.null(expt_data)) {
-        expt_data <- experiment$data
-        if (input$last_tick) {
-          max_tick_ <- max(expt_data$tick)
-          expt_data <- expt_data %>% filter(tick == max_tick_)
-        }
-      }
-      dots <- dots %>% keep(~.x %in% names(expt_data))
-      expt_data <- expt_data %>% rename_(.dots = dots)
       message("Writing to file ", file1)
-      write.csv(expt_data, file1)
+      write.csv(maketable(), file1)
     }
   )
 
