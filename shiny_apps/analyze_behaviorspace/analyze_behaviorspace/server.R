@@ -269,14 +269,21 @@ shinyServer(function(input, output, session) {
   })
 
   output$contents <- renderTable({
-    if(input$summary_tab) {
-      return(plot_data())
+    if (is.null(experiment$data)) return(NULL)
+    dots <- experiment$mapping %>% {set_names(.$col, .$name)}
+    plt_data <- plot_data()
+    if(input$summary_tab && ! is.null(plt_data)) {
+      dots <- dots %>% keep(~.x %in% names(plt_data))
+      plt_data <- plt_data %>% rename_(.dots = dots)
+      return(plt_data)
     } else {
       expt_data <- experiment$data
       if (input$last_tick) {
         max_tick_ <- max(expt_data$tick)
         expt_data <- expt_data %>% filter(tick == max_tick_)
       }
+      dots <- dots %>% keep(~.x %in% names(expt_data))
+      expt_data <- expt_data %>% rename_(.dots = dots)
       return(expt_data)
     }
   })
