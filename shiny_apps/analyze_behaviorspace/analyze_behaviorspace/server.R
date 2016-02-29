@@ -141,7 +141,7 @@ shinyServer(function(input, output, session) {
     rvars <- expt_vars()%>% {set_names(.$col, .$name)} %>% as.list()
     if (! rv %in% rvars) rv <- ''
     updateSelectInput(session, "ren_from", choices = rvars, selected = rv)
-    message("Updated rename variables: (", paste(names(rvars), rvars, sep = " = ", collapse = ", "), ")")
+    # message("Updated rename variables: (", paste(names(rvars), rvars, sep = " = ", collapse = ", "), ")")
   })
 
   observeEvent(expt_yvars(), {
@@ -174,6 +174,7 @@ shinyServer(function(input, output, session) {
     rvars <- expt_vars()%>% {set_names(.$col, .$name)} %>% as.list()
     if (! ren_from  %in% rvars) ren_from <- ''
     updateSelectInput(session, "ren_from", choices = rvars, selected = ren_from)
+    updateTextInput(session, "ren_to", value = "")
     experiment$mapping <- mapping
   })
 
@@ -222,17 +223,17 @@ shinyServer(function(input, output, session) {
       }
       grouping <- grouping %>% discard(~.x == y_var)
 
-      message("Summarizing ", tx_col(y_var, mapping), " by ",
-              paste(map_chr(grouping, tx_col, mapping), collapse=", "))
+      #message("Summarizing ", tx_col(y_var, mapping), " by ",
+      #        paste(map_chr(grouping, tx_col, mapping), collapse=", "))
       dots <- setNames(paste0(c("mean","sd"), "(", y_var, ")"),
                        c(paste0(y_var, "_mean"), paste0(y_var, "_sd")))
-      message("dots = ", paste0(dots, collapse = ", "))
-      message("Gropuing")
+      #message("dots = ", paste0(dots, collapse = ", "))
+      #message("Gropuing")
       exp_data <- exp_data %>% group_by_(.dots = grouping) %>%
         summarize_(.dots = dots) %>%
         rename_(.dots = setNames(list(paste0(y_var, "_mean")), y_var)) %>%
         ungroup()
-      message("Ungrouped: names = ", paste0(names(exp_data), collapse = ', '))
+      #message("Ungrouped: names = ", paste0(names(exp_data), collapse = ', '))
     }
     exp_data
   })
@@ -264,7 +265,7 @@ shinyServer(function(input, output, session) {
     p_map <- do.call(aes_string, p_map_list)
     plot_labs <- labs(x = tx_col(x_var, mapping), y = tx_col(y_var, mapping))
     rval <- list(mapping = p_map, labels = plot_labs, legend = plot_legend)
-    message("plot_mapping: rval = ", rval)
+    # message("plot_mapping: rval = ", rval)
     rval
   })
 
@@ -307,10 +308,10 @@ shinyServer(function(input, output, session) {
     if (err_bars && sd_name %in% names(df)) p <- p + geom_errorbar()
     if (points) p <- p + geom_point()
     if (! is.null(pm_legend)) {
-      message("adding legend ", pm_legend)
+      # message("adding legend ", pm_legend)
       p <- p + scale_colour_discrete(guide = guide_legend(pm_legend, reverse = TRUE))
     }
-    message("Labs = ", pm_labs)
+    # message("Labs = ", pm_labs)
     p <- p + pm_labs
     p + theme_bw(base_size = 20)
   })
