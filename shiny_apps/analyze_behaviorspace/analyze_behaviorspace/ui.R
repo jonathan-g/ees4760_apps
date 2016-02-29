@@ -38,7 +38,7 @@ shinyUI(fluidPage(
     ),
     mainPanel(
       plotOutput('plot'),
-      tableOutput('contents')
+      DT::dataTableOutput('contents')
     )
   )
 ))

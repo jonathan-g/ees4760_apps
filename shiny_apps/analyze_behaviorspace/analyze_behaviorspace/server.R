@@ -15,6 +15,13 @@ library(readr)
 
 options(warn = 2)
 
+count_unique <- function(col_names, df) {
+  lapply(as.character(col_names), function(x) {
+    length(unique(df[,x])) > 1
+   }) %>%
+  unlist()
+}
+
 shinyServer(function(input, output, session) {
   experiment <- reactiveValues(
     data = NULL,
@@ -36,11 +43,16 @@ shinyServer(function(input, output, session) {
     df <- experiment$data
     vars <- experiment$mapping
     if (is.null(df) || is.null(vars)) return(NULL)
-    vars %>% filter(!(name %in% c('run'))) %>%
-      filter( col %>%
-                lapply(function(x) length(unique(df[,as.character(x)])) > 1) %>%
-                unlist()
+    message("data = ", class(df))
+    message("mapping = ", paste(names(vars), collapse = ", "))
+    vars <- vars %>% filter(!(name %in% c('run')))
+    vars <- vars %>% filter( (col %>% as.character() %>%
+              lapply(function(x) {
+                (df %>% select_(x) %>% distinct() %>% nrow()) > 1
+                }) %>% unlist())
       )
+    message("expt_vars = (", paste(vars$name, vars$col, sep = " = ", collapse = ", "), ")")
+    vars
   })
 
   expt_yvars <- reactive({
@@ -48,7 +60,9 @@ shinyServer(function(input, output, session) {
     x_var <- input$x_var
     vars <- expt_vars()
     if (is.null(vars)) return(NULL)
-    vars %>% filter(col != x_var)
+    vars <- vars %>% filter(col != x_var)
+    message("expt_yvars = (", paste(vars$name, vars$col, sep = " = ", collapse = ", "), ")")
+    vars
   })
 
   expt_group_vars <- reactive({
@@ -57,7 +71,9 @@ shinyServer(function(input, output, session) {
     y_var <- input$y_var
     ind_vars <- experiment$ind_vars
     if (any(is.null(vars), is.null(y_var), is.null(ind_vars))) return(NULL)
-    vars %>% filter(col != y_var & col %in% ind_vars)
+    vars <- vars %>% filter(col != y_var & col %in% ind_vars)
+    message("expt_group_ vars = (", paste(vars$name, vars$col, sep = " = ", collapse = ", "), ")")
+    vars
   })
 
   expt_plot_vars <- reactive({
@@ -68,7 +84,9 @@ shinyServer(function(input, output, session) {
     vars <- expt_yvars()
     if (any(is.null(y_var), is.null(ind_vars), is.null(dep_vars), is.null(vars)))
       return(NULL)
-    vars %>% filter(name != y_var & col %in% c(ind_vars, dep_vars))
+    vars <- vars %>% filter(name != y_var & col %in% c(ind_vars, dep_vars))
+    message("expt_plot_vars = (", paste(vars$name, vars$col, sep = " = ", collapse = ", "), ")")
+    vars
   })
 
   classify_vars <- function(df) {
@@ -137,28 +155,20 @@ shinyServer(function(input, output, session) {
                  updateSelectInput(session, "group_var", choices = "", selected = "")
                })
 
-  observeEvent(experiment$mapping, {
-    message("experiment$mapping changed")
+  observeEvent(expt_vars(), {
+    message("expt_vars changed")
     xv <- input$x_var
-    yv <- input$y_var
-    gv <- input$group_var
     rv <- input$ren_from
 
     vars <- expt_vars() %>% {set_names(.$col, .$name)} %>% as.list()
     if (! xv %in% vars) xv <- ''
     updateSelectInput(session, "x_var", choices = vars, selected = xv)
+    message("Set x_var choices to (", paste(names(vars), vars, sep = " = ", collapse=", "), "), selection = ", xv)
 
-    yvars <- expt_yvars() %>% {set_names(.$col, .$name)} %>% as.list()
-    if (! yv %in% yvars) yv <- ''
-    updateSelectInput(session, "y_var", choices = yvars, selected = yv)
-    gvars <- expt_group_vars() %>% {set_names(.$col, .$name)} %>% as.list()
-    if (! gv %in% gvars) gv <- ''
-    updateSelectInput(session, "group_var", choices = gvars, selected = gv)
     rvars <- expt_vars()%>% {set_names(.$col, .$name)} %>% as.list()
     if (! rv %in% rvars) rv <- ''
     updateSelectInput(session, "ren_from", choices = rvars, selected = rv)
-    # message("Updated rename variables: (", paste(names(rvars), rvars, sep = " = ", collapse = ", "), ")")
-    message("finished responding to mapping update")
+    message("Set rename_from choices to (", paste(names(rvars), rvars, sep = " = ", collapse=", "), "), selection = ", rv)
   })
 
   observeEvent(expt_yvars(), {
@@ -167,6 +177,7 @@ shinyServer(function(input, output, session) {
     yvars <- expt_yvars() %>% {set_names(.$col, .$name)} %>% as.list()
     if (! yv %in% yvars) yv <- ''
     updateSelectInput(session, "y_var", choices = yvars, selected = yv)
+    message("Set y_var choices to (", paste(names(yvars), yvars, sep = " = ", collapse=", "), "), selection = ", yv)
   })
 
   observeEvent(expt_group_vars(), {
@@ -175,6 +186,7 @@ shinyServer(function(input, output, session) {
     gvars <- expt_group_vars() %>% {set_names(.$col, .$name)} %>% as.list()
     if (! gv %in% gvars) gv <- ''
     updateSelectInput(session, "group_var", choices = gvars, selected = gv)
+    message("Set group_var choices to (", paste(names(gvars), gvars, sep = " = ", collapse=", "), "), selection = ", gv)
   })
 
   observeEvent(input$rename, {
@@ -291,7 +303,7 @@ shinyServer(function(input, output, session) {
     rval
   })
 
-  output$contents <- renderTable({
+  output$contents <- DT::renderDataTable({
     message("rendering table")
     if (is.null(experiment$data)) return(NULL)
     dots <- experiment$mapping %>% {set_names(.$col, .$name)}
@@ -307,7 +319,7 @@ shinyServer(function(input, output, session) {
     expt_data <- expt_data %>% rename_(.dots = dots)
     message("done rendering table")
     return(expt_data)
-  })
+  }, server = TRUE, options = list(lengthChange = FALSE)  )
 
   makeplot <- reactive({
     message("makeplot")
@@ -315,13 +327,19 @@ shinyServer(function(input, output, session) {
     lines <- input$lines
     y_var <- input$y_var
     err_bars <- input$error_bars
-    if (input$x_var == '' || input$y_var == '')
+    if (input$x_var == '' || input$y_var == '') {
+      message("no variables selected to plot")
       return(NULL)
+    }
     p_map <- plot_mapping()
     df <- plot_data()
-    if (is.null(p_map) || is.null(df)) return(NULL)
+    if (is.null(p_map) || is.null(df)) {
+      message("no data to plot")
+      return(NULL)
+    }
+    message("Plotting ", nrow(df), " rows of data")
     sd_name <- paste0(y_var, "_sd")
-#    message("output plot: mapping = ", p_map)
+    message("plot: mapping = ", p_map)
     pm_mapping <- p_map$mapping
     pm_labs <- p_map$labels
     pm_legend <- p_map$legend
@@ -336,7 +354,7 @@ shinyServer(function(input, output, session) {
     }
     # message("Labs = ", pm_labs)
     p <- p + pm_labs
-    p <- theme_bw(base_size = 20)
+    p <- p + theme_bw(base_size = 20)
     message("Done making plot")
     p
   })
