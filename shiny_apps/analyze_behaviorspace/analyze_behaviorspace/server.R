@@ -289,7 +289,7 @@ shinyServer(function(input, output, session) {
     }
   })
 
-  output$plot <- renderPlot({
+  makeplot <- reactive({
     points <- input$points
     lines <- input$lines
     y_var <- input$y_var
@@ -315,4 +315,74 @@ shinyServer(function(input, output, session) {
     p <- p + pm_labs
     p + theme_bw(base_size = 20)
   })
+
+  output$plot <- renderPlot({
+    makeplot()
+  })
+
+
+  get_filename <- reactive({
+    if (is.null(input$file1)) return(NULL)
+    fname <- input$file1$name %>%
+      str_replace(regex("\\.csv$", ignore.case = TRUE), '') %>%
+      str_replace_all('[ .]+', '_')
+    fname
+  })
+
+  output$save_table <- downloadHandler(
+    filename = function() {
+      if (is.null(plot_data())) return()
+      if (input$summary_tab) {
+        suffix <- 'summary'
+      } else {
+        suffix <- 'data'
+      }
+      fname <- get_filename() %>% paste0(suffix, '.csv')
+      fname
+    },
+    content = function(file1) {
+      message("entering content")
+      if (is.null(experiment$data)) return(NULL)
+      dots <- experiment$mapping %>% {set_names(.$col, .$name)}
+      expt_data <- plot_data()
+      if((! input$summary_tab) || is.null(expt_data)) {
+        expt_data <- experiment$data
+        if (input$last_tick) {
+          max_tick_ <- max(expt_data$tick)
+          expt_data <- expt_data %>% filter(tick == max_tick_)
+        }
+      }
+      dots <- dots %>% keep(~.x %in% names(expt_data))
+      expt_data <- expt_data %>% rename_(.dots = dots)
+      message("Writing to file ", file1)
+      write.csv(expt_data, file1)
+    }
+  )
+
+  output$save_plot <- downloadHandler(
+    filename <- function() {
+      mapping <- experiment$mapping
+      if (is.null(mapping) || is.null(plot_data())) return()
+      fname <- get_filename()
+      suffix <- paste0('_', tx_col(input$x_var, mapping),
+                       '_', tx_col(input$y_var, mapping))
+      if (input$group_var != '')
+        suffix <- paste0(suffix, '_', tx_col(input$group_var, mapping))
+      message("fname = ", fname, ", suffix = ", suffix)
+      suffix2 <- ''
+      if (input$points) suffix2 <- paste0(suffix2, 'p')
+      if (input$lines) suffix2 <- paste0(suffix2, 'l')
+      if (input$error_bars) suffix2 <- paste0(suffix2, 'e')
+      if (input$last_tick) suffix2 <- paste0(suffix2, 't')
+      if (suffix2 != '') suffix <- paste0(suffix, '_', suffix2)
+      fname <- paste0(fname, suffix, '.png')
+      fname
+    },
+    content = function(file1) {
+      png(file1, width = 800, height = 600)
+      makeplot()
+      dev.off()
+    }
+  )
+
 })

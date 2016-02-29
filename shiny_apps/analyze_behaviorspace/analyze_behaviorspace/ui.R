@@ -26,6 +26,11 @@ shinyUI(fluidPage(
       tags$hr(),
       checkboxInput('summary_tab','Summary table?', FALSE),
       tags$hr(),
+      fluidRow(
+        downloadButton("save_plot", "Save Plot"),
+        downloadButton("save_table", "Save Table")
+      ),
+      tags$hr(),
       h3("Rename variables"),
       selectInput('ren_from', label = "from", choices = c("")),
       textInput('ren_to', label = "to"),
