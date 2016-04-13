@@ -237,36 +237,46 @@ shinyServer(function(input, output, session) {
       # message("Bad plotting variables")
       return(NULL)
     }
+    if (g_var != '') {
+      # message("Checking group variable")
+      if (! g_var %in% names(exp_data)) {
+        message("Bad group variable ", g_var)
+      }
+    }
 
     pv <- expt_plot_vars()
     gv <- expt_group_vars()
     # message("Plot vars = ", paste0(pv, collapse = ', '))
-
+    # message("Group vars = ", paste0(gv, collapse = ', '))
+    
     if (last_tick || (! 'tick' %in% c(x_var, y_var))) {
       max_tick <- max(exp_data$tick, na.rm=T)
       # message("Filtering to last tick: ", max_tick)
       exp_data <- exp_data %>% filter(tick == max_tick)
     }
 
+    # message(paste0(names(gv), collapse = ", "))
+    # message("g_var = ", g_var, ", gv = (", paste0(gv, collapse = ", "), "), grouping = ", (g_var %in% gv))
+    
     if (length(pv) >= 1) {
-      if (g_var %in% gv) {
+      if (g_var %in% gv$col) {
         grouping <- unique(c('tick', x_var, g_var))
       } else {
         grouping <- unique(c('tick', x_var))
       }
       grouping <- grouping %>% discard(~.x == y_var)
 
-      #message("Summarizing ", tx_col(y_var, mapping), " by ",
-      #        paste(map_chr(grouping, tx_col, mapping), collapse=", "))
+      # message("Summarizing ", tx_col(y_var, mapping), " by ",
+      #         paste(map_chr(grouping, tx_col, mapping), collapse=", "))
       dots <- setNames(paste0(c("mean","sd"), "(", y_var, ")"),
                        c(paste0(y_var, "_mean"), paste0(y_var, "_sd")))
-      #message("dots = ", paste0(dots, collapse = ", "))
-      #message("Gropuing")
+      # message("dots = ", paste0(dots, collapse = ", "))
+      # message("Grouping")
       exp_data <- exp_data %>% group_by_(.dots = grouping) %>%
         summarize_(.dots = dots) %>%
         rename_(.dots = setNames(list(paste0(y_var, "_mean")), y_var)) %>%
         ungroup()
-      #message("Ungrouped: names = ", paste0(names(exp_data), collapse = ', '))
+      # message("Ungrouped: names = ", paste0(names(exp_data), collapse = ', '))
     }
     exp_data
   })
@@ -322,7 +332,8 @@ shinyServer(function(input, output, session) {
     }
     message("Plotting ", nrow(df), " rows of data")
     sd_name <- paste0(y_var, "_sd")
-    message("plot: mapping = ", p_map)
+    # message("plot: variables = (", paste(names(df), collapse = ", "), ")")
+    # message("plot: mapping = ", p_map)
     pm_mapping <- p_map$mapping
     pm_labs <- p_map$labels
     pm_legend <- p_map$legend
