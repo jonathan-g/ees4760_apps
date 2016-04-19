@@ -13,6 +13,8 @@ library(purrr)
 library(stringr)
 library(readr)
 
+options(shiny.maxRequestSize = 300 * 1024^2)
+
 #instaoptions(warn = 2)
 
 count_unique <- function(col_names, df) {
@@ -116,17 +118,25 @@ shinyServer(function(input, output, session) {
     inFile <- input$file1
     if (is.null(inFile)) return(NULL)
 
-    text <- readLines(inFile$datapath)
+    text <- readLines(inFile$datapath, n = 100)
     skip_lines <- which(str_detect(text, '^"\\[run number\\]"'))
     if (length(skip_lines) > 0) skip_lines = skip_lines[1] - 1
-    if (FALSE) {
-      d <- read.csv(text = text, header = TRUE, skip = skip_lines)
-      d <- d %>% rename(run = X.run.number., tick = X.step.)
-    } else {
-      d <- read_csv(paste0(text, collapse = "\n"), skip  = skip_lines)
-      d <- d %>% {set_names(., str_replace_all(names(.), '[^a-zA-Z0-9]+','.'))} %>%
-        rename(run = .run.number., tick = .step.)
+
+    d <- read_csv(inFile$datapath, skip = skip_lines, n_max = 100)
+
+      nm <- names(d) %>% str_replace_all('[^a-zA-Z0-9]+','.') %>%
+      str_replace_all(c('^\\.+' = '', '\\.+$' = '')) %>%
+      str_replace_all(c('^run\\.number$' = 'run', '^step' = 'tick'))
+    nc <- length(nm)
+    spec <- rep_len('?', length(nm))
+    spec <- paste(spec, collapse = '')
+
+    d <- read_csv(inFile$datapath, skip = skip_lines + 1,
+                  col_names = nm, col_types = spec)
+    if (any(duplicated(names(d)))) {
+      d <- d[,-which(duplicated(names(d)))]
     }
+
     message("Names = (", paste0(names(d), collapse = ", "), ")")
     num_vars <- d %>% map_lgl(is.numeric) %>% keep(~.x) %>% names()
     d <- d %>% select_(.dots = num_vars) %>%
@@ -248,7 +258,7 @@ shinyServer(function(input, output, session) {
     gv <- expt_group_vars()
     # message("Plot vars = ", paste0(pv, collapse = ', '))
     # message("Group vars = ", paste0(gv, collapse = ', '))
-    
+
     if (last_tick || (! 'tick' %in% c(x_var, y_var))) {
       max_tick <- max(exp_data$tick, na.rm=T)
       # message("Filtering to last tick: ", max_tick)
@@ -257,7 +267,7 @@ shinyServer(function(input, output, session) {
 
     # message(paste0(names(gv), collapse = ", "))
     # message("g_var = ", g_var, ", gv = (", paste0(gv, collapse = ", "), "), grouping = ", (g_var %in% gv))
-    
+
     if (length(pv) >= 1) {
       if (g_var %in% gv$col) {
         grouping <- unique(c('tick', x_var, g_var))
