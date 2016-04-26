@@ -421,10 +421,10 @@ shinyServer(function(input, output, session) {
       fname <- paste0(fname, suffix, '.png')
       fname
     },
-    content = function(file1) {
-      png(file1, width = 800, height = 600)
-      makeplot()
-      dev.off()
+    content = function(file) {
+      message("Saving plot to file ", file)
+      ggsave(filename = file, plot = makeplot(), device = "png",
+             width = 800 / 72, height = 600 / 72, dpi = 72, units = "in")
     }
   )
 
